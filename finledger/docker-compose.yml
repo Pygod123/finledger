@@ -1,0 +1,102 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       finledger
+      POSTGRES_USER:     postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  web:
+    build: .
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py collectstatic --noinput &&
+             python manage.py shell -c \"
+               from django.contrib.auth import get_user_model;
+               U = get_user_model();
+               U.objects.filter(username='admin').exists() or
+               U.objects.create_superuser('admin', 'admin@finledger.com', 'admin123')
+             \" &&
+             gunicorn finledger.wsgi:application --bind 0.0.0.0:8000 --workers 3"
+    restart: unless-stopped
+    environment:
+      DEBUG:            "False"
+      SECRET_KEY:       "change-me-super-secret-key-in-production"
+      DB_HOST:          db
+      DB_NAME:          finledger
+      DB_USER:          postgres
+      DB_PASSWORD:      postgres
+      REDIS_URL:        redis://redis:6379/0
+      ALLOWED_HOSTS:    "localhost,127.0.0.1,0.0.0.0"
+    ports:
+      - "8000:8000"
+    volumes:
+      - media_data:/app/media
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  celery_worker:
+    build: .
+    command: celery -A finledger worker --loglevel=info --concurrency=2
+    restart: unless-stopped
+    environment:
+      DEBUG:        "False"
+      SECRET_KEY:   "change-me-super-secret-key-in-production"
+      DB_HOST:      db
+      DB_NAME:      finledger
+      DB_USER:      postgres
+      DB_PASSWORD:  postgres
+      REDIS_URL:    redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  celery_beat:
+    build: .
+    command: celery -A finledger beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    restart: unless-stopped
+    environment:
+      DEBUG:        "False"
+      SECRET_KEY:   "change-me-super-secret-key-in-production"
+      DB_HOST:      db
+      DB_NAME:      finledger
+      DB_USER:      postgres
+      DB_PASSWORD:  postgres
+      REDIS_URL:    redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  media_data:

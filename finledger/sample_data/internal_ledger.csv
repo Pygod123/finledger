@@ -1,0 +1,26 @@
+date,description,amount,category,reference,notes
+2025-05-01,Swiggy food delivery,420,Food & Dining,SW812,Team lunch
+2025-05-01,Acme Corp project payment,120000,Revenue,ACM001,Invoice #INV-2025-041
+2025-05-02,Uber cab to airport,1850,Travel,UBR4421,Client visit
+2025-05-02,IRCTC train tickets,4200,Travel,IRC2291,Mumbai to Pune
+2025-05-03,AWS cloud infrastructure,12400,SaaS & Software,AWS005,May billing
+2025-05-03,Monthly salary,85000,Revenue,SAL050,Staff salary
+2025-05-04,BSNL broadband May,1499,Utilities,BSN041,Office internet
+2025-05-05,Zomato team order,650,Food & Dining,ZOM871,Working lunch
+2025-05-05,DigitalOcean server,2100,SaaS & Software,DO021,Droplets + spaces
+2025-05-06,Apollo pharmacy medicines,1250,Healthcare,APO011,Staff medicines
+2025-05-06,XYZ Ltd consulting fee,45000,Revenue,FRL006,Q2 consulting
+2025-05-07,Electricity bill office,2400,Utilities,MSEB07,MSEB May
+2025-05-08,Amazon office supplies,3499,Shopping,AMZ008,Stationery + cables
+2025-05-08,HDFC credit card payment,15000,Banking & Finance,HDFC08,Monthly payment
+2025-05-09,MakeMyTrip hotel booking,8200,Travel,MMT009,Client offsite
+2025-05-09,Flipkart return refund,599,Shopping,FLK009,Defective product
+2025-05-10,Notion team subscription,800,SaaS & Software,NOT010,Monthly plan
+2025-05-10,BookMyShow team outing,1200,Entertainment,BMS010,Team bonding
+2025-05-11,Jio postpaid plan,699,Utilities,JIO011,Office SIM
+2025-05-11,ABC consulting income,30000,Revenue,CON011,Nov payment
+2025-05-12,McDonalds team snacks,430,Food & Dining,MCD012,Evening snacks
+2025-05-12,Petrol office vehicle,2500,Travel,HPP012,Monthly fuel
+2025-05-13,Zoom business plan,1350,SaaS & Software,ZM013,Video calls
+2025-05-13,Performance bonus,10000,Revenue,BON013,Employee bonus
+2025-05-15,Udemy team learning,1299,Education,UDM015,Django course

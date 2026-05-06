@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FinLedger — Finance Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0f1117; --bg2: #1a1d27; --bg3: #22263a;
+      --border: #2e3248; --text: #e8eaf6; --muted: #8b90b8;
+      --green: #00d68f; --red: #ff6b6b; --amber: #ffc107;
+      --blue: #4fc3f7; --purple: #ce93d8; --accent: #5c6bc0;
+    }
+    body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; min-height: 100vh; }
+    header { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; }
+    .logo { font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }
+    .logo span { color: var(--green); }
+    .header-right { display: flex; align-items: center; gap: 12px; }
+    .sync-badge { background: rgba(0,214,143,.12); color: var(--green); border: 1px solid rgba(0,214,143,.3); border-radius: 20px; font-size: 12px; padding: 4px 12px; }
+    .btn { padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: all .15s; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: #7986cb; }
+    .btn-outline { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+    .btn-outline:hover { border-color: var(--accent); color: var(--text); }
+    main { max-width: 1400px; margin: 0 auto; padding: 24px; }
+    .tabs { display: flex; gap: 4px; margin-bottom: 24px; background: var(--bg2); padding: 4px; border-radius: 10px; width: fit-content; border: 1px solid var(--border); }
+    .tab { padding: 8px 20px; border-radius: 7px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; background: none; color: var(--muted); transition: all .15s; }
+    .tab.active { background: var(--accent); color: #fff; }
+    .tab:hover:not(.active) { color: var(--text); }
+    .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+    .metric-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+    .metric-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px; }
+    .metric-val { font-size: 28px; font-weight: 700; letter-spacing: -1px; }
+    .metric-sub { font-size: 12px; margin-top: 6px; }
+    .green { color: var(--green); } .red { color: var(--red); } .amber { color: var(--amber); } .blue { color: var(--blue); }
+    .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+    .chart-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+    .chart-card.full { grid-column: 1 / -1; }
+    .card-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+    .card-sub { font-size: 12px; color: var(--muted); margin-bottom: 16px; }
+    .chart-wrap { position: relative; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    /* Reconciliation */
+    .recon-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+    .stat-box { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; text-align: center; }
+    .stat-num { font-size: 32px; font-weight: 700; }
+    .stat-lbl { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .filters { display: flex; gap: 10px; margin-bottom: 16px; align-items: center; flex-wrap: wrap; }
+    .filters input, .filters select { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; color: var(--text); font-size: 13px; outline: none; }
+    .filters input:focus, .filters select:focus { border-color: var(--accent); }
+    .table-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead th { text-align: left; padding: 12px 16px; color: var(--muted); font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; border-bottom: 1px solid var(--border); background: var(--bg3); }
+    tbody td { padding: 12px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover { background: rgba(92,107,192,.06); }
+    .pill { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; display: inline-block; }
+    .pill-green { background: rgba(0,214,143,.12); color: var(--green); }
+    .pill-red   { background: rgba(255,107,107,.12); color: var(--red); }
+    .pill-amber { background: rgba(255,193,7,.12); color: var(--amber); }
+    .pill-blue  { background: rgba(79,195,247,.12); color: var(--blue); }
+    /* Upload */
+    .upload-zone { border: 2px dashed var(--border); border-radius: 12px; padding: 40px; text-align: center; background: var(--bg2); cursor: pointer; transition: border-color .2s; }
+    .upload-zone:hover, .upload-zone.drag { border-color: var(--accent); }
+    .upload-zone input { display: none; }
+    .upload-icon { font-size: 40px; margin-bottom: 12px; }
+    .upload-text { color: var(--muted); font-size: 14px; }
+    .upload-text strong { color: var(--accent); }
+    .form-group { margin-top: 16px; display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; }
+    .form-group select { background: var(--bg3); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 8px 14px; font-size: 13px; }
+    .upload-log { margin-top: 20px; }
+    .log-entry { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+    .cat-bar-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+    .cat-name { min-width: 130px; font-size: 13px; }
+    .cat-bar-bg { flex: 1; height: 8px; background: var(--bg3); border-radius: 4px; overflow: hidden; }
+    .cat-bar { height: 100%; border-radius: 4px; }
+    .cat-amt { min-width: 80px; text-align: right; font-size: 12px; color: var(--muted); }
+    .loading { color: var(--muted); text-align: center; padding: 40px; font-size: 14px; }
+    .error-msg { color: var(--red); text-align: center; padding: 20px; font-size: 14px; }
+    .toast { position: fixed; bottom: 24px; right: 24px; background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 20px; font-size: 13px; z-index: 999; display: none; box-shadow: 0 8px 32px rgba(0,0,0,.4); }
+    .toast.show { display: block; }
+    @media (max-width: 900px) {
+      .metrics { grid-template-columns: 1fr 1fr; }
+      .charts-grid { grid-template-columns: 1fr; }
+      .chart-card.full { grid-column: unset; }
+      .recon-stats { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 600px) {
+      .metrics { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Fin<span>Ledger</span></div>
+  <div class="header-right">
+    <span class="sync-badge" id="syncBadge">● Live</span>
+    <button class="btn btn-outline" onclick="exportData('ledger')">⬇ Export</button>
+    <button class="btn btn-primary" onclick="triggerRecon()">⟳ Reconcile</button>
+  </div>
+</header>
+
+<main>
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('overview', this)">Overview</button>
+    <button class="tab" onclick="switchTab('reconciliation', this)">Reconciliation</button>
+    <button class="tab" onclick="switchTab('ledger', this)">Ledger</button>
+    <button class="tab" onclick="switchTab('upload', this)">Upload CSV</button>
+  </div>
+
+  <!-- ─── OVERVIEW ─── -->
+  <div id="panel-overview" class="panel active">
+    <div class="metrics" id="metricsGrid">
+      <div class="metric-card"><div class="metric-label">Total Credits</div><div class="metric-val green" id="m-credits">—</div><div class="metric-sub green" id="m-credit-count">—</div></div>
+      <div class="metric-card"><div class="metric-label">Total Debits</div><div class="metric-val red" id="m-debits">—</div><div class="metric-sub red" id="m-debit-count">—</div></div>
+      <div class="metric-card"><div class="metric-label">Net Cashflow</div><div class="metric-val" id="m-net">—</div><div class="metric-sub" id="m-net-sub">—</div></div>
+      <div class="metric-card"><div class="metric-label">Unmatched Amount</div><div class="metric-val amber" id="m-unmatched">—</div><div class="metric-sub amber" id="m-unmatched-sub">—</div></div>
+    </div>
+    <div class="charts-grid">
+      <div class="chart-card full">
+        <div class="card-title">Daily Cashflow Trend</div>
+        <div class="card-sub">Credits vs Debits over time</div>
+        <div class="chart-wrap"><canvas id="cashflowChart" height="90"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="card-title">Expense by Category</div>
+        <div class="card-sub">Proportion of debit transactions</div>
+        <div class="chart-wrap" style="max-width:320px;margin:auto"><canvas id="categoryPie" height="220"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="card-title">Category Breakdown</div>
+        <div class="card-sub">Spend per category (debits)</div>
+        <div id="catBars" style="margin-top:8px"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── RECONCILIATION ─── -->
+  <div id="panel-reconciliation" class="panel">
+    <div class="recon-stats">
+      <div class="stat-box"><div class="stat-num green" id="r-matched">—</div><div class="stat-lbl">Matched</div></div>
+      <div class="stat-box"><div class="stat-num red"   id="r-unmatched">—</div><div class="stat-lbl">Unmatched</div></div>
+      <div class="stat-box"><div class="stat-num blue"  id="r-rate">—</div><div class="stat-lbl">Match Rate</div></div>
+    </div>
+    <div class="filters">
+      <input id="reconSearch" placeholder="🔍 Search narration..." oninput="renderReconTable()" style="flex:1;min-width:200px">
+      <select id="reconStatus" onchange="renderReconTable()">
+        <option value="">All statuses</option>
+        <option value="matched">Matched</option>
+        <option value="unmatched_bank">Unmatched (Bank)</option>
+        <option value="unmatched_ledger">Unmatched (Ledger)</option>
+      </select>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Date</th><th>Narration / Description</th>
+          <th>Bank Amt</th><th>Ledger Amt</th>
+          <th>Similarity</th><th>Status</th>
+        </tr></thead>
+        <tbody id="reconTable"><tr><td colspan="6" class="loading">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ─── LEDGER ─── -->
+  <div id="panel-ledger" class="panel">
+    <div class="filters">
+      <select id="ledgerStatus" onchange="loadLedger()">
+        <option value="">All statuses</option>
+        <option value="matched">Matched</option>
+        <option value="unmatched">Unmatched</option>
+      </select>
+      <select id="ledgerType" onchange="loadLedger()">
+        <option value="">All types</option>
+        <option value="credit">Credit</option>
+        <option value="debit">Debit</option>
+      </select>
+      <select id="ledgerSource" onchange="loadLedger()">
+        <option value="">All sources</option>
+        <option value="bank">Bank</option>
+        <option value="internal">Internal</option>
+      </select>
+      <button class="btn btn-outline" onclick="exportData('ledger')">⬇ Export CSV</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Date</th><th>Description</th><th>Amount</th>
+          <th>Category</th><th>Source</th><th>Type</th><th>Status</th>
+        </tr></thead>
+        <tbody id="ledgerTable"><tr><td colspan="7" class="loading">Loading…</td></tr></tbody>
+      </table>
+    </div>
+    <div style="margin-top:12px;display:flex;gap:8px;align-items:center" id="ledgerPagination"></div>
+  </div>
+
+  <!-- ─── UPLOAD ─── -->
+  <div id="panel-upload" class="panel">
+    <div style="max-width:600px;margin:auto">
+      <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileInput').click()"
+           ondragover="event.preventDefault();this.classList.add('drag')"
+           ondragleave="this.classList.remove('drag')"
+           ondrop="handleDrop(event)">
+        <input type="file" id="fileInput" accept=".csv" onchange="handleFileSelect(this.files[0])">
+        <div class="upload-icon">📂</div>
+        <div class="upload-text">Drag & drop your CSV here or <strong>browse</strong></div>
+        <div style="font-size:12px;color:var(--muted);margin-top:6px">Supports bank_statement.csv and internal_ledger.csv</div>
+      </div>
+      <div class="form-group">
+        <label style="color:var(--muted);font-size:13px">Source type:</label>
+        <select id="sourceType">
+          <option value="bank">Bank Statement</option>
+          <option value="ledger">Internal Ledger</option>
+        </select>
+        <button class="btn btn-primary" id="uploadBtn" onclick="uploadFile()" disabled>Upload & Process</button>
+      </div>
+      <div id="selectedFile" style="text-align:center;margin-top:10px;font-size:13px;color:var(--muted)"></div>
+      <div class="upload-log" id="uploadLog"></div>
+
+      <div style="margin-top:32px;padding:20px;background:var(--bg2);border:1px solid var(--border);border-radius:12px">
+        <div class="card-title" style="margin-bottom:12px">📋 CSV Format Guide</div>
+        <div style="font-size:13px;color:var(--muted);line-height:1.8">
+          <strong style="color:var(--text)">bank_statement.csv</strong> required columns:<br>
+          <code style="color:var(--blue)">date, narration, amount, type</code><br><br>
+          <strong style="color:var(--text)">internal_ledger.csv</strong> required columns:<br>
+          <code style="color:var(--blue)">date, description, amount, category</code><br><br>
+          Optional: <code style="color:var(--muted)">reference, balance, notes</code>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = 'http://127.0.0.1:8000';  // same origin
+
+// ── State ──────────────────────────────────────────────────────────────────
+let reconData = [];
+let cashflowChart, categoryChart;
+let currentFile = null;
+
+// ── Tab switching ──────────────────────────────────────────────────────────
+function switchTab(id, el) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('panel-' + id).classList.add('active');
+  el.classList.add('active');
+  if (id === 'reconciliation') loadReconciliation();
+  if (id === 'ledger') loadLedger();
+}
+
+// ── Toast ──────────────────────────────────────────────────────────────────
+function showToast(msg, color='var(--green)') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.borderColor = color;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ── Formatters ─────────────────────────────────────────────────────────────
+const fmt = n => '₹' + Number(n).toLocaleString('en-IN', {maximumFractionDigits: 0});
+
+// ── Overview data ──────────────────────────────────────────────────────────
+async function loadSummary() {
+  try {
+    const res  = await fetch(`${API}/api/summary/`);
+    const data = await res.json();
+
+    document.getElementById('m-credits').textContent     = fmt(data.total_credits);
+    document.getElementById('m-credit-count').textContent = `${data.credit_count} transactions`;
+    document.getElementById('m-debits').textContent       = fmt(data.total_debits);
+    document.getElementById('m-debit-count').textContent  = `${data.debit_count} transactions`;
+    document.getElementById('m-net').textContent          = fmt(data.net_cashflow);
+    document.getElementById('m-net').className            = 'metric-val ' + (data.net_cashflow >= 0 ? 'green' : 'red');
+    document.getElementById('m-net-sub').textContent      = data.net_cashflow >= 0 ? 'Positive balance' : 'Negative balance';
+    document.getElementById('m-unmatched').textContent    = fmt(data.unmatched_amount);
+    document.getElementById('m-unmatched-sub').textContent = `${data.unmatched_count} entries pending`;
+
+    renderCashflowChart(data.daily_cashflow || []);
+  } catch (e) {
+    console.error('Summary load failed', e);
+  }
+}
+
+async function loadCategories() {
+  try {
+    const res  = await fetch(`${API}/api/category-breakdown/?txn_type=debit`);
+    const data = await res.json();
+    renderCategoryCharts(data.categories || []);
+  } catch (e) { console.error('Category load failed', e); }
+}
+
+// ── Charts ─────────────────────────────────────────────────────────────────
+const COLORS = ['#00d68f','#4fc3f7','#ce93d8','#ffc107','#ff6b6b','#80cbc4','#f48fb1','#a5d6a7'];
+
+function renderCashflowChart(daily) {
+  const labels   = daily.map(d => d.date);
+  const credits  = daily.map(d => d.credits);
+  const debits   = daily.map(d => d.debits);
+  const ctx      = document.getElementById('cashflowChart').getContext('2d');
+
+  if (cashflowChart) cashflowChart.destroy();
+  cashflowChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Credits', data: credits, backgroundColor: 'rgba(0,214,143,.7)', borderRadius: 4 },
+        { label: 'Debits',  data: debits,  backgroundColor: 'rgba(255,107,107,.7)', borderRadius: 4 },
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { labels: { color: '#8b90b8', font: { size: 12 } } },
+        tooltip: { callbacks: { label: ctx => ' ' + fmt(ctx.raw) } }
+      },
+      scales: {
+        x: { ticks: { color: '#8b90b8', font: { size: 11 } }, grid: { color: '#22263a' } },
+        y: { ticks: { color: '#8b90b8', font: { size: 11 }, callback: v => v >= 1000 ? '₹' + (v/1000) + 'k' : '₹' + v }, grid: { color: '#22263a' } }
+      }
+    }
+  });
+}
+
+function renderCategoryCharts(cats) {
+  if (!cats.length) return;
+
+  // Pie
+  const pieCtx = document.getElementById('categoryPie').getContext('2d');
+  if (categoryChart) categoryChart.destroy();
+  categoryChart = new Chart(pieCtx, {
+    type: 'doughnut',
+    data: {
+      labels: cats.map(c => c.name),
+      datasets: [{ data: cats.map(c => c.amount), backgroundColor: COLORS, borderWidth: 0, hoverOffset: 6 }]
+    },
+    options: {
+      cutout: '60%',
+      plugins: {
+        legend: { position: 'bottom', labels: { color: '#8b90b8', font: { size: 11 }, padding: 12 } },
+        tooltip: { callbacks: { label: ctx => ' ' + fmt(ctx.raw) + ' (' + cats[ctx.dataIndex].percentage + '%)' } }
+      }
+    }
+  });
+
+  // Bar rows
+  const max = cats[0].amount;
+  document.getElementById('catBars').innerHTML = cats.map((c, i) => `
+    <div class="cat-bar-row">
+      <div class="cat-name">${c.name}</div>
+      <div class="cat-bar-bg"><div class="cat-bar" style="width:${(c.amount/max*100).toFixed(1)}%;background:${COLORS[i % COLORS.length]}"></div></div>
+      <div class="cat-amt">${fmt(c.amount)}</div>
+    </div>
+  `).join('');
+}
+
+// ── Reconciliation ─────────────────────────────────────────────────────────
+async function loadReconciliation() {
+  try {
+    const res  = await fetch(`${API}/api/reconciliation/`);
+    const data = await res.json();
+    reconData  = [
+      ...data.matched,
+      ...data.unmatched_bank,
+      ...data.unmatched_ledger,
+    ];
+    document.getElementById('r-matched').textContent   = data.summary.matched;
+    document.getElementById('r-unmatched').textContent = data.summary.unmatched_bank + data.summary.unmatched_ledger;
+    document.getElementById('r-rate').textContent      = data.summary.match_rate + '%';
+    renderReconTable();
+  } catch (e) {
+    document.getElementById('reconTable').innerHTML = `<tr><td colspan="6" class="error-msg">Failed to load reconciliation data. Ensure the server is running.</td></tr>`;
+  }
+}
+
+function renderReconTable() {
+  const q  = document.getElementById('reconSearch').value.toLowerCase();
+  const st = document.getElementById('reconStatus').value;
+  const filtered = reconData.filter(r => {
+    const narr = (r.bank_transaction?.narration || r.ledger_entry?.description || '').toLowerCase();
+    return (!q || narr.includes(q)) && (!st || r.status === st);
+  });
+
+  document.getElementById('reconTable').innerHTML = filtered.length ? filtered.map(r => {
+    const bankAmt   = r.bank_transaction  ? fmt(r.bank_transaction.amount)  : '—';
+    const ledgerAmt = r.ledger_entry      ? fmt(r.ledger_entry.amount)       : '—';
+    const narr      = r.bank_transaction?.narration || r.ledger_entry?.description || '—';
+    const date      = r.bank_transaction?.date      || r.ledger_entry?.date        || '—';
+    const score     = (r.similarity_score * 100).toFixed(0) + '%';
+    const pillClass = r.status === 'matched' ? 'pill-green' : 'pill-red';
+    const pillText  = r.status === 'matched' ? '✓ Matched' : '✗ Unmatched';
+    return `<tr>
+      <td>${date}</td>
+      <td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${narr}">${narr}</td>
+      <td style="text-align:right">${bankAmt}</td>
+      <td style="text-align:right">${ledgerAmt}</td>
+      <td style="text-align:center"><span class="pill ${r.status === 'matched' ? 'pill-blue' : 'pill-amber'}">${score}</span></td>
+      <td><span class="pill ${pillClass}">${pillText}</span></td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="6" class="loading">No results found.</td></tr>`;
+}
+
+// ── Ledger ─────────────────────────────────────────────────────────────────
+let ledgerPage = 1;
+
+async function loadLedger(page = 1) {
+  ledgerPage = page;
+  const status = document.getElementById('ledgerStatus').value;
+  const type   = document.getElementById('ledgerType').value;
+  const source = document.getElementById('ledgerSource').value;
+  const params = new URLSearchParams({ page, page_size: 20 });
+  if (status) params.set('status',   status);
+  if (type)   params.set('txn_type', type);
+  if (source) params.set('source',   source);
+
+  document.getElementById('ledgerTable').innerHTML = `<tr><td colspan="7" class="loading">Loading…</td></tr>`;
+  try {
+    const res  = await fetch(`${API}/api/ledger/?${params}`);
+    const data = await res.json();
+
+    document.getElementById('ledgerTable').innerHTML = data.results.length
+      ? data.results.map(r => `<tr>
+          <td>${r.date}</td>
+          <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.description}</td>
+          <td style="text-align:right;color:${r.txn_type === 'credit' ? 'var(--green)' : 'var(--red)'}">
+            ${r.txn_type === 'credit' ? '+' : '-'}${fmt(r.amount)}
+          </td>
+          <td><span class="pill pill-blue">${r.category}</span></td>
+          <td>${r.source}</td>
+          <td><span class="pill ${r.txn_type === 'credit' ? 'pill-green' : 'pill-red'}">${r.txn_type}</span></td>
+          <td><span class="pill ${r.reconciliation_status === 'matched' ? 'pill-green' : 'pill-amber'}">${r.reconciliation_status}</span></td>
+        </tr>`).join('')
+      : `<tr><td colspan="7" class="loading">No entries found.</td></tr>`;
+
+    const pg = document.getElementById('ledgerPagination');
+    pg.innerHTML = '';
+    if (data.pages > 1) {
+      for (let i = 1; i <= data.pages; i++) {
+        const b = document.createElement('button');
+        b.className = 'btn ' + (i === page ? 'btn-primary' : 'btn-outline');
+        b.textContent = i;
+        b.onclick = () => loadLedger(i);
+        pg.appendChild(b);
+      }
+    }
+  } catch (e) {
+    document.getElementById('ledgerTable').innerHTML = `<tr><td colspan="7" class="error-msg">Failed to load ledger. Ensure server is running.</td></tr>`;
+  }
+}
+
+// ── Upload ─────────────────────────────────────────────────────────────────
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('dropZone').classList.remove('drag');
+  handleFileSelect(e.dataTransfer.files[0]);
+}
+
+function handleFileSelect(file) {
+  if (!file) return;
+  currentFile = file;
+  document.getElementById('selectedFile').textContent = `Selected: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+  document.getElementById('uploadBtn').disabled = false;
+}
+
+async function uploadFile() {
+  if (!currentFile) return;
+  const source = document.getElementById('sourceType').value;
+  const btn    = document.getElementById('uploadBtn');
+  btn.textContent = 'Uploading…';
+  btn.disabled = true;
+
+  const fd = new FormData();
+  fd.append('file', currentFile);
+  fd.append('source', source);
+
+  try {
+    const res  = await fetch(`${API}/api/ingest/upload/`, { method: 'POST', body: fd });
+    const data = await res.json();
+
+    const log  = document.getElementById('uploadLog');
+    const ok   = data.status === 'success';
+    log.insertAdjacentHTML('afterbegin', `
+      <div class="log-entry">
+        <div>
+          <strong style="color:${ok ? 'var(--green)' : 'var(--red)'}">${ok ? '✓' : '✗'} ${data.filename}</strong>
+          <span style="color:var(--muted);margin-left:8px">${source} · ${data.rows_inserted || 0} rows inserted, ${data.rows_skipped || 0} skipped</span>
+        </div>
+        <span class="pill ${ok ? 'pill-green' : 'pill-red'}">${data.status}</span>
+      </div>
+    `);
+    showToast(ok ? `✓ Uploaded ${data.rows_inserted} rows` : `✗ Upload failed: ${data.error_message}`);
+  } catch (e) {
+    showToast('✗ Upload failed. Is the server running?', 'var(--red)');
+  }
+  btn.textContent = 'Upload & Process';
+  btn.disabled = false;
+  currentFile  = null;
+  document.getElementById('selectedFile').textContent = '';
+  document.getElementById('fileInput').value = '';
+}
+
+// ── Reconcile trigger ──────────────────────────────────────────────────────
+async function triggerRecon() {
+  showToast('⟳ Reconciliation queued…', 'var(--amber)');
+  try {
+    const res  = await fetch(`${API}/api/reconciliation/run/`, { method: 'POST' });
+    const data = await res.json();
+    showToast(`✓ ${data.message || 'Reconciliation started'}`);
+    setTimeout(() => { loadSummary(); loadCategories(); }, 2000);
+  } catch (e) {
+    showToast('✗ Failed to trigger reconciliation', 'var(--red)');
+  }
+}
+
+// ── Export ──────────────────────────────────────────────────────────────────
+function exportData(type) {
+  window.open(`${API}/api/export/?type=${type}`, '_blank');
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+loadSummary();
+loadCategories();
+</script>
+</body>
+</html>
