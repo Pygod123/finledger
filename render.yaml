@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: finledger
+    runtime: python
+    rootDir: finledger
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn finledger.wsgi:application
+    envVars:
+      - key: DEBUG
+        value: false
